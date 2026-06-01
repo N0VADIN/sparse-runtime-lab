@@ -1,0 +1,4 @@
+llama_print_timings:        load time =    842.12 ms
+llama_print_timings:      sample time =      5.22 ms /   128 runs
+llama_print_timings:       eval time =   2100.00 ms /   128 runs   (60.95 tokens per second)
+peak memory 2.25 GB

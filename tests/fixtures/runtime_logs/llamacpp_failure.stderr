@@ -1,0 +1,2 @@
+llama_model_load: error loading model: invalid magic characters 'PWRI'
+main: error: unable to load model
