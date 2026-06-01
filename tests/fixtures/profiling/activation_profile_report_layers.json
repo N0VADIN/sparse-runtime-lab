@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "report_type": "activation_profile",
+  "profile_plan": {
+    "model_path": "model.gguf",
+    "calibration": {
+      "path": "calibration.txt",
+      "exists": true,
+      "warnings": []
+    },
+    "max_samples": 3,
+    "target_modules": ["mlp", "ffn"],
+    "warnings": []
+  },
+  "layers": [
+    {
+      "layer_index": 0,
+      "module_name": "model.layers.0.mlp",
+      "total_values": 100,
+      "zero_values": 75,
+      "sparsity": 0.75
+    },
+    {
+      "layer_index": 1,
+      "module_name": "model.layers.1.mlp",
+      "total_values": 80,
+      "zero_values": 40,
+      "sparsity": 0.5
+    }
+  ],
+  "warnings": ["Fixture-only profile; no model was loaded."]
+}

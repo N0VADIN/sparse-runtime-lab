@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "report_type": "profile_plan",
+  "profile_plan": {
+    "model_path": "model.gguf",
+    "calibration": {
+      "path": "missing-calibration.txt",
+      "exists": false,
+      "warnings": ["Calibration file does not exist; this is a dry-run plan only."]
+    },
+    "max_samples": 8,
+    "target_modules": ["mlp", "ffn"],
+    "warnings": []
+  }
+}
