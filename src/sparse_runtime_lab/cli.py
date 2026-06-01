@@ -1,104 +1,96 @@
-"""Command line interface for Sparse Runtime Lab."""
+"""Command-line interface for Sparse Runtime Lab."""
 
 from __future__ import annotations
 
 import argparse
-import json
-import sys
 from pathlib import Path
+from typing import Sequence
 
-from sparse_runtime_lab.gguf import GgufInspectionError, inspect_gguf_header
-from sparse_runtime_lab.powerinfer import (
-    build_powerinfer_smoke_command,
-    inspect_powerinfer_dir,
-    shell_quote_command,
-)
+from .analyzer import analyze_model
+from .layout import check_powerinfer_layout
+from .report import render_markdown_from_report
+from .runner import build_command, run_smoke_test
+from .schema import artifact_report, dumps_report, layout_report, load_report
 
-
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-
-    try:
-        result = args.func(args)
-    except (FileNotFoundError, NotADirectoryError, GgufInspectionError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
-
-    if result is not None:
-        if getattr(args, "as_json", False):
-            print(json.dumps(result, indent=2, sort_keys=True))
-        else:
-            _print_human(result)
-    return 0
+DEFAULT_PROMPT = "Explain sparse inference in one paragraph."
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="srl", description="Sparse Runtime Lab CLI")
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="PowerInfer-first model tester and compatibility reporter.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    gguf_parser = subparsers.add_parser("inspect-gguf", help="Inspect a minimal GGUF header")
-    gguf_parser.add_argument("path", type=Path)
-    gguf_parser.add_argument("--json", action="store_true", dest="as_json")
-    gguf_parser.set_defaults(func=_cmd_inspect_gguf)
+    analyze = subparsers.add_parser("analyze", help="Run deterministic static artifact analysis.")
+    analyze.add_argument("--model", required=True, help="Path to a GGUF or .powerinfer.gguf artifact.")
+    _add_output_arg(analyze)
 
-    pi_parser = subparsers.add_parser(
-        "inspect-powerinfer-dir", help="Inspect a PowerInfer-style model directory"
-    )
-    pi_parser.add_argument("path", type=Path)
-    pi_parser.add_argument("--json", action="store_true", dest="as_json")
-    pi_parser.set_defaults(func=_cmd_inspect_powerinfer_dir)
+    layout = subparsers.add_parser("check-layout", help="Check a local PowerInfer checkout/build layout without executing it.")
+    layout.add_argument("--powerinfer-dir", required=True, help="Path to a local PowerInfer checkout or build directory.")
+    _add_output_arg(layout)
 
-    smoke_parser = subparsers.add_parser("run-smoke", help="Build a PowerInfer smoke-test command")
-    smoke_parser.add_argument("--binary", required=True, type=Path)
-    smoke_parser.add_argument("--model", required=True, type=Path)
-    smoke_parser.add_argument("--prompt", required=True)
-    smoke_parser.add_argument("--tokens", type=int, default=128)
-    smoke_parser.add_argument("--threads", type=int, default=8)
-    smoke_parser.add_argument("--vram-budget", type=float, default=None)
-    smoke_parser.add_argument("--extra-arg", action="append", default=[])
-    smoke_parser.add_argument("--dry-run", action="store_true", default=False)
-    smoke_parser.add_argument("--json", action="store_true", dest="as_json")
-    smoke_parser.set_defaults(func=_cmd_run_smoke)
+    smoke = subparsers.add_parser("smoke", help="Build or run a PowerInfer/llama.cpp runtime smoke test.")
+    smoke.add_argument("--runtime", required=True, help="Path to PowerInfer or llama.cpp binary.")
+    smoke.add_argument("--model", required=True, help="Path to a GGUF or .powerinfer.gguf artifact.")
+    smoke.add_argument("--prompt", default=DEFAULT_PROMPT, help="Prompt used for the smoke test.")
+    smoke.add_argument("--tokens", type=int, default=128, help="Number of tokens to request.")
+    smoke.add_argument("--threads", type=int, default=8, help="Runtime thread count.")
+    smoke.add_argument("--vram-budget", type=int, help="Optional PowerInfer VRAM budget.")
+    smoke.add_argument("--timeout", type=int, default=120, help="Timeout in seconds.")
+    smoke.add_argument("--dry-run", action="store_true", help="Only build and report the command; do not execute the runtime.")
+    _add_output_arg(smoke)
+    smoke.add_argument("extra_args", nargs=argparse.REMAINDER, help="Arguments after -- are passed to the runtime.")
 
-    return parser
+    report = subparsers.add_parser("report", help="Render an existing Sparse Runtime Lab JSON report to Markdown.")
+    report.add_argument("--input", required=True, help="Path to an existing JSON report.")
+    _add_output_arg(report)
+
+    args = parser.parse_args(argv)
+
+    if args.command == "analyze":
+        analysis = analyze_model(args.model)
+        _emit(dumps_report(artifact_report(analysis)), args.output)
+        return 0 if analysis.compatibility.value != "red" else 2
+
+    if args.command == "check-layout":
+        check = check_powerinfer_layout(args.powerinfer_dir)
+        _emit(dumps_report(layout_report(check)), args.output)
+        return 0 if check.passed else 2
+
+    if args.command == "smoke":
+        analysis = analyze_model(args.model)
+        extra_args = tuple(arg for arg in args.extra_args if arg != "--")
+        command = build_command(
+            args.runtime,
+            args.model,
+            args.prompt,
+            args.tokens,
+            args.threads,
+            args.vram_budget,
+            extra_args,
+        )
+        if args.dry_run:
+            _emit(dumps_report(artifact_report(analysis, planned_command=command)), args.output)
+            return 0 if analysis.compatibility.value != "red" else 2
+        runtime = run_smoke_test(command, timeout_seconds=args.timeout)
+        _emit(dumps_report(artifact_report(analysis, runtime)), args.output)
+        return 0 if runtime.passed and analysis.compatibility.value != "red" else 2
+
+    if args.command == "report":
+        _emit(render_markdown_from_report(load_report(args.input)), args.output)
+        return 0
+
+    return 2
 
 
-def _cmd_inspect_gguf(args: argparse.Namespace) -> dict[str, object]:
-    return inspect_gguf_header(args.path).to_dict()
+def _add_output_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--output", help="Optional output path. Defaults to stdout.")
 
 
-def _cmd_inspect_powerinfer_dir(args: argparse.Namespace) -> dict[str, object]:
-    return inspect_powerinfer_dir(args.path).to_dict()
+def _emit(content: str, output: str | None) -> None:
+    if output:
+        Path(output).write_text(content, encoding="utf-8")
+    else:
+        print(content, end="")
 
 
-def _cmd_run_smoke(args: argparse.Namespace) -> dict[str, object]:
-    command = build_powerinfer_smoke_command(
-        binary=args.binary,
-        model=args.model,
-        prompt=args.prompt,
-        tokens=args.tokens,
-        threads=args.threads,
-        vram_budget=args.vram_budget,
-        extra_args=args.extra_arg,
-    )
-    return {
-        "dry_run": bool(args.dry_run),
-        "command": command,
-        "shell": shell_quote_command(command),
-        "note": "Execution is intentionally not implemented yet; this command builder is safe to test.",
-    }
-
-
-def _print_human(result: dict[str, object]) -> None:
-    for key, value in result.items():
-        if isinstance(value, list):
-            print(f"{key}:")
-            for item in value:
-                print(f"  - {item}")
-        else:
-            print(f"{key}: {value}")
-
-
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

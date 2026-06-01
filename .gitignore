@@ -1,35 +1,7 @@
-# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 .pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-
-# Virtual environments
+*.egg-info/
 .venv/
-venv/
-env/
-
-# Build artifacts
 build/
 dist/
-*.egg-info/
-
-# Local model artifacts
-models/
-artifacts/
-reports/*.json
-reports/*.md
-*.gguf
-*.powerinfer.gguf
-*.q4.powerinfer.gguf
-*.generated.gpuidx
-
-# OS/editor
-.DS_Store
-.idea/
-.vscode/
