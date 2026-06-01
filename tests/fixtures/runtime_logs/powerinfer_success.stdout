@@ -1,0 +1,7 @@
+main: build = 1234 (PowerInfer)
+llm_load_model_from_file: loaded meta data with 24 key-value pairs and 291 tensors from model.powerinfer.gguf
+llm_load_tensors: offloaded 18/32 layers to GPU
+PowerInfer sparse FFN initialized
+
+Explain sparse inference in one paragraph.
+Sparse inference skips inactive neurons at runtime while preserving the dense model interface.
