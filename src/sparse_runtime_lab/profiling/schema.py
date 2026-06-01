@@ -150,7 +150,7 @@ def _validate_layer(layer: object, index: int, errors: list[str]) -> None:
     if not isinstance(layer, dict):
         errors.append(f"layers[{index}] must be an object")
         return
-    for field_name in ("layer_index", "module_name", "total_values", "zero_values"):
+    for field_name in ("layer_index", "module_name", "total_values", "zero_values", "sparsity"):
         if field_name not in layer:
             errors.append(f"layers[{index}].{field_name} is required")
 

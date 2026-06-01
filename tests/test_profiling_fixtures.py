@@ -76,3 +76,10 @@ def test_cli_renders_profile_fixture_to_markdown(tmp_path):
 def test_fixture_paths_do_not_import_torch_or_transformers():
     assert "torch" not in sys.modules
     assert "transformers" not in sys.modules
+
+
+def test_activation_profile_layer_without_sparsity_is_invalid():
+    fixture = _load_fixture("activation_profile_report_layers.json")
+    fixture["layers"][0].pop("sparsity")
+
+    assert "layers[0].sparsity is required" in validate_profile_report(fixture)
