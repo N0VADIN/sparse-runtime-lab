@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "report_type": "profile_plan",
+  "profile_plan": {
+    "model_path": "model.gguf",
+    "calibration": {
+      "path": "calibration.txt",
+      "exists": true,
+      "warnings": []
+    },
+    "max_samples": 4,
+    "target_modules": ["mlp"],
+    "warnings": []
+  }
+}

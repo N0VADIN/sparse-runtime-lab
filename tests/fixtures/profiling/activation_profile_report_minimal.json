@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "report_type": "activation_profile",
+  "profile_plan": {
+    "model_path": "model.gguf",
+    "calibration": {
+      "path": "calibration.txt",
+      "exists": true,
+      "warnings": []
+    },
+    "max_samples": 2,
+    "target_modules": ["mlp"],
+    "warnings": []
+  },
+  "layers": [],
+  "warnings": []
+}

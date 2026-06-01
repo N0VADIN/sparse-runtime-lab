@@ -1,0 +1,6 @@
+build: 4200 (llama.cpp)
+llm_load_tensors: ggml ctx size = 0.27 MiB
+llm_load_tensors:        CPU buffer size = 4096.00 MiB
+llama_new_context_with_model: n_ctx = 2048
+
+The dense baseline answers normally.
