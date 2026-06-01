@@ -161,3 +161,57 @@ def test_run_smoke_test_timeout_is_failed_result(monkeypatch):
     assert runtime.return_code == 124
     assert runtime.timed_out is True
     assert runtime.passed is False
+
+
+def test_dense_llama_runtime_success_does_not_become_powerinfer_ready():
+    analysis = analyze_model("Meta-Llama-3.1-8B-Instruct-Q8_0.gguf")
+    runtime = parse_runtime_output(
+        ("llama.cpp",),
+        stdout=(FIXTURE_DIR / "llamacpp_success.stdout").read_text(encoding="utf-8"),
+        stderr=(FIXTURE_DIR / "llamacpp_success.stderr").read_text(encoding="utf-8"),
+        return_code=0,
+    )
+
+    assert runtime.passed is True
+    assert analysis.is_powerinfer_artifact is False
+    assert final_gate(analysis, runtime) is Gate.YELLOW
+
+
+def test_powerinfer_artifact_runtime_success_can_become_ready():
+    analysis = analyze_model("SmallThinker-Q4_K_M.powerinfer.gguf")
+    runtime = parse_runtime_output(
+        ("powerinfer",),
+        stdout=(FIXTURE_DIR / "powerinfer_success.stdout").read_text(encoding="utf-8"),
+        stderr=(FIXTURE_DIR / "powerinfer_success.stderr").read_text(encoding="utf-8"),
+        return_code=0,
+    )
+
+    assert runtime.passed is True
+    assert analysis.is_powerinfer_artifact is True
+    assert final_gate(analysis, runtime) is Gate.GREEN
+
+
+def test_load_only_stdout_does_not_count_as_first_token_evidence():
+    runtime = parse_runtime_output(
+        ("runtime",),
+        stdout="llm_load_tensors: model loaded\n",
+        stderr="",
+        return_code=0,
+    )
+
+    assert runtime.loaded is True
+    assert runtime.first_token is False
+    assert runtime.passed is False
+
+
+def test_zero_token_smoke_output_does_not_pass_readiness():
+    runtime = parse_runtime_output(
+        ("runtime", "-n", "0"),
+        stdout="llm_load_tensors: model loaded\nPrompt echoed but no generation\n",
+        stderr="llama_print_timings: load time = 100.00 ms\n",
+        return_code=0,
+    )
+
+    assert runtime.loaded is True
+    assert runtime.first_token is False
+    assert runtime.passed is False

@@ -51,3 +51,11 @@ def test_static_analysis_never_marks_models_ready():
 )
 def test_quantization_variants(model, expected):
     assert analyze_model(model).quantization == expected
+
+
+def test_smallthinker_plain_gguf_is_not_powerinfer_artifact():
+    analysis = analyze_model("SmallThinker-4BA0.6B-Instruct-Q4_K_M.gguf")
+
+    assert analysis.family == "SmallThinker"
+    assert analysis.is_powerinfer_artifact is False
+    assert analysis.format == "GGUF"

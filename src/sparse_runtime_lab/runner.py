@@ -12,7 +12,7 @@ from .models import RuntimeResult
 
 TOKENS_PER_SECOND_PATTERNS = (
     re.compile(r"^(?!.*prompt eval).*eval time.*?([0-9]+(?:\.[0-9]+)?)\s*tokens per second", re.I | re.M),
-    re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*(?:tok/s|tokens/s|tokens per second)", re.I),
+    re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*(?:tok/s|tokens/s)", re.I),
 )
 MEMORY_PATTERNS = (
     re.compile(r"(?:peak|total)?\s*(?:ram|memory|mem).*?([0-9]+(?:\.[0-9]+)?)\s*(gib|gb|mib|mb)", re.I),
@@ -72,13 +72,11 @@ def run_smoke_test(command: Sequence[str], timeout_seconds: int = 120) -> Runtim
     combined = f"{stdout}\n{stderr}"
     elapsed = max(time.monotonic() - started, 0.001)
     tokens_per_second = _parse_tokens_per_second(combined)
-    if tokens_per_second is None and return_code == 0:
-        tokens_per_second = None
 
     return RuntimeResult(
         command=tuple(command),
         loaded=_is_loaded(combined),
-        first_token=_contains_any(combined, TOKEN_PATTERNS) or (return_code == 0 and len(stdout.strip()) > 0 and elapsed > 0),
+        first_token=tokens_per_second is not None,
         tokens_per_second=tokens_per_second,
         peak_memory_mb=_parse_memory_mb(combined),
         return_code=return_code,
@@ -92,11 +90,12 @@ def parse_runtime_output(command: Sequence[str], stdout: str, stderr: str = "", 
     """Parse captured runtime output; useful for fixtures and imported reports."""
 
     combined = f"{stdout}\n{stderr}"
+    tokens_per_second = _parse_tokens_per_second(combined)
     return RuntimeResult(
         command=tuple(command),
         loaded=_is_loaded(combined),
-        first_token=_contains_any(combined, TOKEN_PATTERNS) or (return_code == 0 and bool(stdout.strip())),
-        tokens_per_second=_parse_tokens_per_second(combined),
+        first_token=tokens_per_second is not None,
+        tokens_per_second=tokens_per_second,
         peak_memory_mb=_parse_memory_mb(combined),
         return_code=return_code,
         stdout_tail=_tail(stdout),
