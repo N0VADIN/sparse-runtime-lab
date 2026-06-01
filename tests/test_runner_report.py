@@ -215,3 +215,16 @@ def test_zero_token_smoke_output_does_not_pass_readiness():
     assert runtime.loaded is True
     assert runtime.first_token is False
     assert runtime.passed is False
+
+
+def test_zero_token_smoke_with_timing_does_not_pass_readiness():
+    runtime = parse_runtime_output(
+        ("runtime", "-n", "0"),
+        stdout="llm_load_tensors: model loaded\n",
+        stderr="llama_print_timings: eval time = 1.00 ms / 0 runs (0.00 tokens per second)\n",
+        return_code=0,
+    )
+
+    assert runtime.loaded is True
+    assert runtime.first_token is False
+    assert runtime.passed is False

@@ -76,7 +76,7 @@ def run_smoke_test(command: Sequence[str], timeout_seconds: int = 120) -> Runtim
     return RuntimeResult(
         command=tuple(command),
         loaded=_is_loaded(combined),
-        first_token=tokens_per_second is not None,
+        first_token=tokens_per_second is not None and tokens_per_second > 0,
         tokens_per_second=tokens_per_second,
         peak_memory_mb=_parse_memory_mb(combined),
         return_code=return_code,
@@ -94,7 +94,7 @@ def parse_runtime_output(command: Sequence[str], stdout: str, stderr: str = "", 
     return RuntimeResult(
         command=tuple(command),
         loaded=_is_loaded(combined),
-        first_token=tokens_per_second is not None,
+        first_token=tokens_per_second is not None and tokens_per_second > 0,
         tokens_per_second=tokens_per_second,
         peak_memory_mb=_parse_memory_mb(combined),
         return_code=return_code,
