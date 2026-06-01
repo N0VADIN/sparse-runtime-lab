@@ -7,19 +7,18 @@ from pathlib import Path
 
 from .models import Gate, ModelAnalysis
 
-POWERINFER_HINTS = ("powerinfer", ".powerinfer.gguf", "smallthinker", "relullama", "bamboo")
+POWERINFER_HINTS = (".powerinfer.gguf", "powerinfer")
 RELU_HINTS = ("relu", "reglu", "smallthinker", "bamboo")
 SWIGLU_HINTS = ("llama", "qwen", "mistral", "gemma", "phi")
-QUANT_PATTERN = re.compile(r"(?:^|[-_.])(q[2-8](?:_[a-z0-9]+)*(?:_[a-z0-9]+)?|f16|fp16|bf16|f32)(?:[-_.]|$)", re.I)
+QUANT_PATTERN = re.compile(r"(?:^|[-_.])(q[2-8](?:_[a-z0-9]+)*|f16|fp16|bf16|f32)(?:[-_.]|$)", re.I)
 
 
 def analyze_model(path: str | Path) -> ModelAnalysis:
-    """Analyze a model path without loading weights.
+    """Analyze a model path without loading weights or running a runtime.
 
-    This intentionally stays deterministic and fast: it infers compatibility from
-    artifact naming, extension, and common model-family conventions. A future
-    analyzer can augment this with GGUF metadata inspection while preserving the
-    same traffic-light contract.
+    Static analysis can identify candidates and hard blockers, but it cannot prove
+    that a sparse artifact is PowerInfer-ready. Green readiness is intentionally
+    reserved for reports that include a passing runtime smoke test.
     """
 
     model_path = Path(path)
@@ -27,7 +26,7 @@ def analyze_model(path: str | Path) -> ModelAnalysis:
     suffixes = "".join(model_path.suffixes).lower()
 
     is_gguf = name.endswith(".gguf")
-    is_powerinfer = any(hint in name for hint in POWERINFER_HINTS)
+    is_powerinfer = name.endswith(".powerinfer.gguf") or any(hint in name for hint in POWERINFER_HINTS)
     has_lora = any(marker in name for marker in ("lora", "adapter", "qlora"))
 
     family = _detect_family(name)
@@ -38,17 +37,17 @@ def analyze_model(path: str | Path) -> ModelAnalysis:
 
     reasons: list[str] = []
     if not is_gguf:
-        reasons.append("Artifact is not a GGUF file; runtime smoke tests may need a converted export.")
+        reasons.append("Artifact is not a GGUF file; export or conversion is required before runtime testing.")
     if is_powerinfer:
-        reasons.append("PowerInfer-compatible naming hint detected.")
+        reasons.append("PowerInfer artifact hint detected; runtime evidence is still required before marking ready.")
     if activation in {"ReLU", "ReGLU"}:
-        reasons.append("Activation appears sparse-friendly.")
+        reasons.append("Activation appears sparse-friendly from deterministic naming hints.")
     if activation == "SwiGLU":
-        reasons.append("Likely dense SwiGLU model; conversion requires recovery/eval gates.")
+        reasons.append("Likely dense SwiGLU model; do not perform blind sparse conversion without recovery/eval gates.")
     if has_lora:
         reasons.append("LoRA/adapter hint detected; merge before dense or sparse runtime export.")
 
-    compatibility = _score(is_gguf, is_powerinfer, activation, family)
+    compatibility = _score_static_candidate(is_gguf, activation, family)
 
     return ModelAnalysis(
         model_path=model_path,
@@ -108,15 +107,11 @@ def _detect_tokenizer(family: str) -> str:
     return "unknown"
 
 
-def _score(is_gguf: bool, is_powerinfer: bool, activation: str, family: str) -> Gate:
+def _score_static_candidate(is_gguf: bool, activation: str, family: str) -> Gate:
     if not is_gguf:
         return Gate.RED
-    if is_powerinfer and activation in {"ReLU", "ReGLU"}:
-        return Gate.GREEN
     if family in {"SmallThinker", "ReluLLaMA", "Bamboo"}:
-        return Gate.GREEN
-    if activation in {"ReLU", "ReGLU"}:
         return Gate.YELLOW
-    if activation == "SwiGLU":
+    if activation in {"ReLU", "ReGLU", "SwiGLU"}:
         return Gate.YELLOW
     return Gate.RED

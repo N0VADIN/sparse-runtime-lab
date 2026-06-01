@@ -61,6 +61,11 @@ def run_smoke_test(command: Sequence[str], timeout_seconds: int = 120) -> Runtim
         stderr = exc.stderr if isinstance(exc.stderr, str) else ""
         return_code = 124
         timed_out = True
+    except OSError as exc:
+        stdout = ""
+        stderr = str(exc)
+        return_code = 127
+        timed_out = False
 
     combined = f"{stdout}\n{stderr}"
     elapsed = max(time.monotonic() - started, 0.001)

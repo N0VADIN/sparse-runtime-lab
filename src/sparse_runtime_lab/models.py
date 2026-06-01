@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class Gate(str, Enum):
-    """Traffic-light gate status for model/runtime readiness."""
+    """Traffic-light gate status for static and runtime readiness."""
 
     GREEN = "green"
     YELLOW = "yellow"
@@ -26,7 +26,7 @@ class Gate(str, Enum):
     def label(self) -> str:
         return {
             Gate.GREEN: "PowerInfer-ready",
-            Gate.YELLOW: "Experimental",
+            Gate.YELLOW: "Needs runtime evidence",
             Gate.RED: "Not suitable",
         }[self]
 
@@ -64,3 +64,19 @@ class RuntimeResult:
     @property
     def passed(self) -> bool:
         return self.return_code == 0 and self.loaded and self.first_token and not self.timed_out
+
+
+@dataclass(frozen=True)
+class LayoutCheck:
+    """PowerInfer checkout/build layout validation result."""
+
+    root: Path
+    executable: Path | None
+    found_paths: tuple[Path, ...]
+    missing_paths: tuple[str, ...]
+    gate: Gate
+    reasons: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def passed(self) -> bool:
+        return self.gate is not Gate.RED

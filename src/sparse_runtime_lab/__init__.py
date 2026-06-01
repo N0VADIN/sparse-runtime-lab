@@ -1,5 +1,5 @@
 """Sparse Runtime Lab package."""
 
-from .models import Gate, ModelAnalysis, RuntimeResult
+from .models import Gate, LayoutCheck, ModelAnalysis, RuntimeResult
 
-__all__ = ["Gate", "ModelAnalysis", "RuntimeResult"]
+__all__ = ["Gate", "LayoutCheck", "ModelAnalysis", "RuntimeResult"]

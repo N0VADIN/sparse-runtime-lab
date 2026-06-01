@@ -1,20 +1,32 @@
-"""Markdown reporting for Sparse Runtime Lab."""
+"""JSON and Markdown reporting for Sparse Runtime Lab."""
 
 from __future__ import annotations
 
-from .models import Gate, ModelAnalysis, RuntimeResult
+import json
+from pathlib import Path
+from typing import Any
+
+from .models import Gate, LayoutCheck, ModelAnalysis, RuntimeResult
 
 
 def final_gate(analysis: ModelAnalysis, runtime: RuntimeResult | None) -> Gate:
-    """Combine static compatibility and optional runtime smoke-test status."""
+    """Combine static compatibility and optional runtime smoke-test status.
 
-    if runtime is not None and not runtime.passed:
+    Static analysis alone never upgrades a model to green. Green means the
+    artifact is not statically blocked and there is passing runtime evidence.
+    """
+
+    if analysis.compatibility is Gate.RED:
         return Gate.RED
-    return analysis.compatibility
+    if runtime is None:
+        return analysis.compatibility
+    if runtime.passed:
+        return Gate.GREEN
+    return Gate.RED
 
 
 def render_markdown_report(analysis: ModelAnalysis, runtime: RuntimeResult | None = None) -> str:
-    """Render a concise traffic-light report."""
+    """Render a concise traffic-light report for an artifact."""
 
     gate = final_gate(analysis, runtime)
     lines = [
@@ -22,7 +34,7 @@ def render_markdown_report(analysis: ModelAnalysis, runtime: RuntimeResult | Non
         "",
         f"**Result:** {gate.emoji} {gate.label}",
         "",
-        "## Model intake",
+        "## Static artifact analysis",
         "",
         f"- Path: `{analysis.model_path}`",
         f"- Format: `{analysis.format}`",
@@ -32,6 +44,7 @@ def render_markdown_report(analysis: ModelAnalysis, runtime: RuntimeResult | Non
         f"- Quantization: `{analysis.quantization}`",
         f"- LoRA/adapter hint: `{'yes' if analysis.has_lora else 'no'}`",
         f"- PowerInfer artifact hint: `{'yes' if analysis.is_powerinfer_artifact else 'no'}`",
+        f"- Static gate: `{analysis.compatibility.value}`",
         "",
         "## Gate reasons",
         "",
@@ -42,7 +55,7 @@ def render_markdown_report(analysis: ModelAnalysis, runtime: RuntimeResult | Non
         lines.extend(
             [
                 "",
-                "## Runtime smoke test",
+                "## Runtime smoke test evidence",
                 "",
                 f"- Command: `{' '.join(runtime.command)}`",
                 f"- Loaded: `{'yes' if runtime.loaded else 'no'}`",
@@ -57,9 +70,9 @@ def render_markdown_report(analysis: ModelAnalysis, runtime: RuntimeResult | Non
         lines.extend(
             [
                 "",
-                "## Runtime smoke test",
+                "## Runtime smoke test evidence",
                 "",
-                "- Not run. Use `sparse-runtime-lab test --runtime ./build/bin/main --model model.powerinfer.gguf`.",
+                "- Not run. Static analysis only marks candidates; it does not prove PowerInfer readiness.",
             ]
         )
 
@@ -75,6 +88,92 @@ def render_markdown_report(analysis: ModelAnalysis, runtime: RuntimeResult | Non
         ]
     )
     return "\n".join(lines)
+
+
+def render_json_report(analysis: ModelAnalysis, runtime: RuntimeResult | None = None) -> str:
+    """Render an artifact report as stable, machine-readable JSON."""
+
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "result": _gate_to_dict(final_gate(analysis, runtime)),
+        "static_analysis": _analysis_to_dict(analysis),
+        "runtime": _runtime_to_dict(runtime) if runtime is not None else None,
+    }
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+
+
+def render_layout_markdown(check: LayoutCheck) -> str:
+    """Render a PowerInfer layout check as Markdown."""
+
+    lines = [
+        "# PowerInfer Layout Check",
+        "",
+        f"**Result:** {check.gate.emoji} {check.gate.label}",
+        "",
+        f"- Root: `{check.root}`",
+        f"- Executable: `{check.executable or 'n/a'}`",
+        "",
+        "## Found paths",
+        "",
+    ]
+    lines.extend(f"- `{path}`" for path in check.found_paths or (Path("n/a"),))
+    lines.extend(["", "## Missing paths", ""])
+    lines.extend(f"- `{path}`" for path in check.missing_paths or ("none",))
+    lines.extend(["", "## Reasons", ""])
+    lines.extend(f"- {reason}" for reason in check.reasons)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_layout_json(check: LayoutCheck) -> str:
+    """Render a PowerInfer layout check as JSON."""
+
+    payload = {
+        "schema_version": 1,
+        "result": _gate_to_dict(check.gate),
+        "layout": {
+            "root": str(check.root),
+            "executable": str(check.executable) if check.executable else None,
+            "found_paths": [str(path) for path in check.found_paths],
+            "missing_paths": list(check.missing_paths),
+            "reasons": list(check.reasons),
+        },
+    }
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+
+
+def _analysis_to_dict(analysis: ModelAnalysis) -> dict[str, Any]:
+    return {
+        "model_path": str(analysis.model_path),
+        "format": analysis.format,
+        "family": analysis.family,
+        "activation": analysis.activation,
+        "tokenizer": analysis.tokenizer,
+        "quantization": analysis.quantization,
+        "has_lora": analysis.has_lora,
+        "is_powerinfer_artifact": analysis.is_powerinfer_artifact,
+        "compatibility": _gate_to_dict(analysis.compatibility),
+        "reasons": list(analysis.reasons),
+    }
+
+
+def _runtime_to_dict(runtime: RuntimeResult) -> dict[str, Any]:
+    return {
+        "command": list(runtime.command),
+        "loaded": runtime.loaded,
+        "first_token": runtime.first_token,
+        "tokens_per_second": runtime.tokens_per_second,
+        "peak_memory_mb": runtime.peak_memory_mb,
+        "return_code": runtime.return_code,
+        "timed_out": runtime.timed_out,
+        "passed": runtime.passed,
+        "stdout_tail": runtime.stdout_tail,
+        "stderr_tail": runtime.stderr_tail,
+    }
+
+
+def _gate_to_dict(gate: Gate) -> dict[str, str]:
+    return {"value": gate.value, "emoji": gate.emoji, "label": gate.label}
 
 
 def _fmt(value: float | None) -> str:
