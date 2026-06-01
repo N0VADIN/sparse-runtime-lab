@@ -1,0 +1,2 @@
+error: unknown tensor type for sparse FFN block
+model load failed
