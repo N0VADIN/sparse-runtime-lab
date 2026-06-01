@@ -1,25 +1,51 @@
 # MVP 2 Activation Profiler Plan
 
-MVP 1.5 stops at artifact inspection, layout checks, runtime smoke tests, and reproducible reports. MVP 2 can add activation-sparsity profiling, but only as an optional layer that keeps the default package lightweight.
+MVP 2A adds only the activation-profiling **schema and planning layer**. It does not load real models, import ML frameworks, execute runtimes, download calibration data, or perform sparse conversion.
 
-## Goals
+## MVP 2A scope now in the package
+
+- `sparse_runtime_lab.profiling.schema` defines JSON-compatible dataclasses for:
+  - `ProfilingPlan`
+  - `CalibrationSource`
+  - `LayerSparsitySummary`
+  - `ActivationProfileReport`
+- `sparse_runtime_lab.profiling.plan` creates dry-run profiling plans from local paths and target module names.
+- `sparse-runtime-lab profile-plan` emits a JSON dry-run plan.
+- Markdown rendering can summarize `profile_plan` and `activation_profile` report skeletons.
+
+## MVP 2A non-goals
+
+- No `torch` dependency.
+- No `transformers` dependency.
+- No model loading.
+- No calibration file reading beyond existence checks.
+- No model downloads.
+- No sparse kernels or sparse conversion.
+- No runtime binary execution.
+
+## Example dry-run plan
+
+```bash
+sparse-runtime-lab profile-plan \
+  --model model.gguf \
+  --calibration calibration_prompts.txt \
+  --max-samples 128 \
+  --target-modules mlp ffn \
+  --output profile-plan.json
+```
+
+The command records intent and warnings, for example when the calibration path is missing, but it remains a planning step only.
+
+## Future MVP 2B goals
 
 - Measure activation sparsity on local calibration prompts.
 - Produce per-layer summary JSON files and retained-mass curves.
 - Keep quality-aware gates separate from runtime smoke tests.
 - Make profiling reproducible enough to compare dense and sparse candidates.
 
-## Non-goals
+## Future optional dependency boundary
 
-- No sparse kernel implementation.
-- No PowerInfer or llama.cpp reimplementation.
-- No blind SwiGLU-to-ReLU conversion.
-- No default `torch` or `transformers` dependency in the base package.
-- No model downloads unless a future CLI flag explicitly requests them.
-
-## Proposed optional dependency boundary
-
-A future extra can hold heavyweight profiling dependencies:
+A later extra can hold heavyweight profiling dependencies:
 
 ```toml
 [project.optional-dependencies]
@@ -29,9 +55,9 @@ profiler = [
 ]
 ```
 
-The default `sparse-runtime-lab` install should continue to run analyzer, layout, smoke, report, and tests without these packages.
+The default `sparse-runtime-lab` install should continue to run analyzer, layout, smoke, profile planning, report rendering, and tests without these packages.
 
-## Proposed workflow
+## Future workflow
 
 ```text
 calibration prompts
@@ -44,7 +70,7 @@ calibration prompts
   → Markdown summary
 ```
 
-## Output artifacts
+## Future output artifacts
 
 ```text
 profile/
@@ -59,7 +85,7 @@ profile/
     └── retained_mass_vs_neurons.png
 ```
 
-## Suggested gates
+## Suggested future gates
 
 - Calibration prompt count and token count are above configured minimums.
 - No NaNs or infs in activation summaries.
@@ -70,5 +96,5 @@ profile/
 ## Open questions
 
 - Which local metadata reader should become the canonical source for chat template and EOS/BOS checks?
-- Should profiler outputs be compared directly in the same schema family as smoke reports, or kept in a separate `profile` report type?
+- Should measured profiler outputs share the same schema family as smoke reports, or remain in a separate `activation_profile` report type?
 - Which small public calibration sets are acceptable if downloads are explicitly enabled in a future version?

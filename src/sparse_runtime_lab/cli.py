@@ -8,6 +8,7 @@ from typing import Sequence
 
 from .analyzer import analyze_model
 from .layout import check_powerinfer_layout
+from .profiling import create_profiling_plan, dumps_profile_report, profiling_plan_report
 from .report import render_markdown_from_report
 from .runner import build_command, run_smoke_test
 from .schema import artifact_report, dumps_report, layout_report, load_report
@@ -38,6 +39,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     smoke.add_argument("--dry-run", action="store_true", help="Only build and report the command; do not execute the runtime.")
     _add_output_arg(smoke)
     smoke.add_argument("extra_args", nargs=argparse.REMAINDER, help="Arguments after -- are passed to the runtime.")
+
+    profile_plan = subparsers.add_parser("profile-plan", help="Create a dry-run activation profiling plan JSON.")
+    profile_plan.add_argument("--model", required=True, help="Path to the model artifact or model directory.")
+    profile_plan.add_argument("--calibration", required=True, help="Path to a local calibration prompt file.")
+    profile_plan.add_argument("--max-samples", type=int, required=True, help="Maximum calibration samples to plan for.")
+    profile_plan.add_argument("--target-modules", nargs="+", required=True, help="Module names to target in a future profiler run.")
+    _add_output_arg(profile_plan)
 
     report = subparsers.add_parser("report", help="Render an existing Sparse Runtime Lab JSON report to Markdown.")
     report.add_argument("--input", required=True, help="Path to an existing JSON report.")
@@ -73,6 +81,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         runtime = run_smoke_test(command, timeout_seconds=args.timeout)
         _emit(dumps_report(artifact_report(analysis, runtime)), args.output)
         return 0 if runtime.passed and analysis.compatibility.value != "red" else 2
+
+    if args.command == "profile-plan":
+        plan = create_profiling_plan(args.model, args.calibration, args.max_samples, args.target_modules)
+        _emit(dumps_profile_report(profiling_plan_report(plan)), args.output)
+        return 0
 
     if args.command == "report":
         _emit(render_markdown_from_report(load_report(args.input)), args.output)

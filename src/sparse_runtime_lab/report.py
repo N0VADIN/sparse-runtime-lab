@@ -46,6 +46,10 @@ def render_markdown_from_report(report: dict[str, Any]) -> str:
         return _render_artifact_markdown(report)
     if report_type == "layout":
         return _render_layout_markdown(report)
+    if report_type == "profile_plan":
+        return _render_profile_plan_markdown(report)
+    if report_type == "activation_profile":
+        return _render_activation_profile_markdown(report)
     raise ValueError(f"unsupported report_type: {report_type!r}")
 
 
@@ -141,6 +145,59 @@ def _render_layout_markdown(report: dict[str, Any]) -> str:
     lines.append("")
     return "\n".join(lines)
 
+
+
+def _render_profile_plan_markdown(report: dict[str, Any]) -> str:
+    plan = report["profile_plan"]
+    calibration = plan["calibration"]
+    lines = [
+        "# Activation Profiling Plan",
+        "",
+        "**Result:** dry-run plan only; no model was loaded.",
+        "",
+        f"- Model path: `{plan['model_path']}`",
+        f"- Calibration path: `{calibration['path']}`",
+        f"- Calibration exists: `{'yes' if calibration['exists'] else 'no'}`",
+        f"- Max samples: `{plan['max_samples']}`",
+        f"- Target modules: `{', '.join(plan['target_modules']) or 'none'}`",
+        "",
+        "## Warnings",
+        "",
+    ]
+    warnings = list(plan.get("warnings", ())) + list(calibration.get("warnings", ()))
+    lines.extend(f"- {warning}" for warning in warnings or ("No warnings.",))
+    lines.extend(
+        [
+            "",
+            "## Next gates",
+            "",
+            "- Install optional profiler dependencies only when MVP 2 profiling is explicitly enabled.",
+            "- Load models and calibration prompts in a future profiler implementation, not in this planning step.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_activation_profile_markdown(report: dict[str, Any]) -> str:
+    plan_markdown = _render_profile_plan_markdown({"profile_plan": report["profile_plan"]})
+    lines = [plan_markdown.rstrip(), "", "## Layer sparsity summaries", ""]
+    layers = report.get("layers") or []
+    if not layers:
+        lines.append("- No layer summaries recorded yet.")
+    else:
+        for layer in layers:
+            lines.append(
+                f"- Layer `{layer['layer_index']}` `{layer['module_name']}`: "
+                f"sparsity `{_fmt(layer['sparsity'])}` "
+                f"({layer['zero_values']}/{layer['total_values']} zeros)"
+            )
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(["", "## Report warnings", ""])
+        lines.extend(f"- {warning}" for warning in warnings)
+    lines.append("")
+    return "\n".join(lines)
 
 def _fmt(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.2f}"
