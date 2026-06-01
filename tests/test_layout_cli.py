@@ -1,6 +1,4 @@
 import json
-import os
-
 from sparse_runtime_lab.cli import main
 from sparse_runtime_lab.layout import check_powerinfer_layout
 from sparse_runtime_lab.models import Gate
@@ -21,7 +19,7 @@ def test_layout_finds_executable_without_running_it(tmp_path):
     binary = root / "build" / "bin" / "main"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
-    binary.chmod(binary.stat().st_mode | os.X_OK)
+    binary.chmod(0o755)
     (root / "CMakeLists.txt").write_text("cmake_minimum_required(VERSION 3.20)\n", encoding="utf-8")
     (root / "README.md").write_text("# test\n", encoding="utf-8")
 
