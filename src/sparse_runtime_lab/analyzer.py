@@ -7,7 +7,6 @@ from pathlib import Path
 
 from .models import Gate, ModelAnalysis
 
-POWERINFER_HINTS = (".powerinfer.gguf", "powerinfer")
 RELU_HINTS = ("relu", "reglu", "smallthinker", "bamboo")
 SWIGLU_HINTS = ("llama", "qwen", "mistral", "gemma", "phi")
 QUANT_PATTERN = re.compile(r"(?:^|[-_.])(q[2-8](?:_[a-z0-9]+)*|f16|fp16|bf16|f32)(?:[-_.]|$)", re.I)
@@ -26,7 +25,7 @@ def analyze_model(path: str | Path) -> ModelAnalysis:
     suffixes = "".join(model_path.suffixes).lower()
 
     is_gguf = name.endswith(".gguf")
-    is_powerinfer = name.endswith(".powerinfer.gguf") or any(hint in name for hint in POWERINFER_HINTS)
+    is_powerinfer = name.endswith(".powerinfer.gguf")
     has_lora = any(marker in name for marker in ("lora", "adapter", "qlora"))
 
     family = _detect_family(name)
@@ -47,7 +46,7 @@ def analyze_model(path: str | Path) -> ModelAnalysis:
     if has_lora:
         reasons.append("LoRA/adapter hint detected; merge before dense or sparse runtime export.")
 
-    compatibility = _score_static_candidate(is_gguf, activation, family)
+    compatibility = _score_static_candidate(is_gguf, activation, family, has_lora)
 
     return ModelAnalysis(
         model_path=model_path,
@@ -107,8 +106,10 @@ def _detect_tokenizer(family: str) -> str:
     return "unknown"
 
 
-def _score_static_candidate(is_gguf: bool, activation: str, family: str) -> Gate:
+def _score_static_candidate(is_gguf: bool, activation: str, family: str, has_lora: bool) -> Gate:
     if not is_gguf:
+        return Gate.RED
+    if has_lora:
         return Gate.RED
     if family in {"SmallThinker", "ReluLLaMA", "Bamboo"}:
         return Gate.YELLOW
