@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "report_type": "retained_mass_curve",
+  "layer_index": 0,
+  "points": [
+    {"neurons": 1, "retained_mass": 0.25},
+    {"neurons": 2, "retained_mass": 0.5},
+    {"neurons": 4, "retained_mass": 0.9}
+  ]
+}

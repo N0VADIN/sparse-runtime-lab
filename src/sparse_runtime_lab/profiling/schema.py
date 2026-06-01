@@ -106,6 +106,55 @@ def layer_sparsity_summary_to_dict(summary: LayerSparsitySummary) -> dict[str, A
     }
 
 
+def validate_profile_report(report: dict[str, Any]) -> tuple[str, ...]:
+    """Return schema validation errors for profiling report fixtures."""
+
+    errors: list[str] = []
+    if report.get("schema_version") != SCHEMA_VERSION:
+        errors.append("unsupported profiling schema_version")
+
+    report_type = report.get("report_type")
+    if report_type == "profile_plan":
+        _validate_profile_plan(report.get("profile_plan"), errors)
+    elif report_type == "activation_profile":
+        _validate_profile_plan(report.get("profile_plan"), errors)
+        layers = report.get("layers")
+        if not isinstance(layers, list):
+            errors.append("activation_profile.layers must be a list")
+        else:
+            for index, layer in enumerate(layers):
+                _validate_layer(layer, index, errors)
+    else:
+        errors.append("unsupported profiling report_type")
+    return tuple(errors)
+
+
+def _validate_profile_plan(plan: object, errors: list[str]) -> None:
+    if not isinstance(plan, dict):
+        errors.append("profile_plan must be an object")
+        return
+    if not plan.get("model_path"):
+        errors.append("profile_plan.model_path is required")
+    if not isinstance(plan.get("max_samples"), int) or plan.get("max_samples", 0) <= 0:
+        errors.append("profile_plan.max_samples must be greater than zero")
+    if not isinstance(plan.get("target_modules"), list):
+        errors.append("profile_plan.target_modules must be a list")
+    calibration = plan.get("calibration")
+    if not isinstance(calibration, dict):
+        errors.append("profile_plan.calibration must be an object")
+    elif "path" not in calibration:
+        errors.append("profile_plan.calibration.path is required")
+
+
+def _validate_layer(layer: object, index: int, errors: list[str]) -> None:
+    if not isinstance(layer, dict):
+        errors.append(f"layers[{index}] must be an object")
+        return
+    for field_name in ("layer_index", "module_name", "total_values", "zero_values"):
+        if field_name not in layer:
+            errors.append(f"layers[{index}].{field_name} is required")
+
+
 def dumps_profile_report(report: dict[str, Any]) -> str:
     """Dump a profiling report dictionary as stable JSON."""
 

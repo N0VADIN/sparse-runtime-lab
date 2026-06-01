@@ -9,6 +9,7 @@ from .schema import (
     activation_profile_report,
     dumps_profile_report,
     profiling_plan_report,
+    validate_profile_report,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "create_profiling_plan",
     "dumps_profile_report",
     "profiling_plan_report",
+    "validate_profile_report",
 ]
