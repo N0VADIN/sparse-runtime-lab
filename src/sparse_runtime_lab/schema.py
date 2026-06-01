@@ -28,11 +28,9 @@ def final_artifact_gate(analysis: ModelAnalysis, runtime: RuntimeResult | None) 
         return Gate.RED
     if runtime is None:
         return analysis.compatibility
-    if not runtime.passed:
-        return Gate.RED
-    if analysis.is_powerinfer_artifact:
+    if runtime.passed:
         return Gate.GREEN
-    return analysis.compatibility
+    return Gate.RED
 
 
 def artifact_report(

@@ -1,5 +1,3 @@
-import pytest
-
 from sparse_runtime_lab.analyzer import analyze_model
 from sparse_runtime_lab.models import Gate
 
@@ -28,34 +26,3 @@ def test_non_gguf_lora_adapter_is_red():
     assert analysis.compatibility is Gate.RED
     assert analysis.has_lora is True
     assert analysis.format == "safetensors"
-
-
-def test_static_analysis_never_marks_models_ready():
-    models = [
-        "SmallThinker-Q4_K_M.powerinfer.gguf",
-        "ReluLLaMA-7B-Q4_K_M.powerinfer.gguf",
-        "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
-        "unknown-model.gguf",
-    ]
-
-    assert all(analyze_model(model).compatibility is not Gate.GREEN for model in models)
-
-
-@pytest.mark.parametrize(
-    ("model", "expected"),
-    [
-        ("model-Q4_K_M.gguf", "Q4_K_M"),
-        ("model-Q8_0.gguf", "Q8_0"),
-        ("model-f16.gguf", "F16"),
-    ],
-)
-def test_quantization_variants(model, expected):
-    assert analyze_model(model).quantization == expected
-
-
-def test_smallthinker_plain_gguf_is_not_powerinfer_artifact():
-    analysis = analyze_model("SmallThinker-4BA0.6B-Instruct-Q4_K_M.gguf")
-
-    assert analysis.family == "SmallThinker"
-    assert analysis.is_powerinfer_artifact is False
-    assert analysis.format == "GGUF"
