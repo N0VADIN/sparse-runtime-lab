@@ -5,6 +5,11 @@ from pathlib import Path
 
 
 RUNNER_PATH = Path(__file__).resolve().parents[1] / "src" / "sparse_runtime_lab" / "runner.py"
+BLOCKED_IMPORT_SEGMENTS = {"analyzer", "profiling"}
+
+
+def _is_blocked_module(name: str) -> bool:
+    return any(segment in BLOCKED_IMPORT_SEGMENTS for segment in name.split("."))
 
 
 def test_runner_stays_on_runtime_boundary():
@@ -13,14 +18,12 @@ def test_runner_stays_on_runtime_boundary():
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                assert not alias.name.endswith(".analyzer"), alias.name
-                assert not alias.name.endswith(".profiling"), alias.name
+                assert not _is_blocked_module(alias.name), alias.name
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
             imported_names = {alias.name for alias in node.names}
 
-            assert not module.endswith("analyzer"), module
-            assert not module.endswith("profiling"), module
+            assert not _is_blocked_module(module), module
 
             if module in {"", "sparse_runtime_lab"}:
                 assert "analyzer" not in imported_names, imported_names
