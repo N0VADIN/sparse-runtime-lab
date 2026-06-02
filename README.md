@@ -65,6 +65,13 @@ python -m pip install -e .
 python -m pip install -e ".[dev]"
 ```
 
+The install exposes both console scripts:
+
+```bash
+sparse-runtime-lab --help
+srl --help
+```
+
 Future real activation profiling must remain optional, for example:
 
 ```bash
@@ -77,13 +84,36 @@ The base install must continue to work without Torch or Transformers.
 
 `analyze` performs static artifact analysis only and writes a JSON report. It does not run a model or inspect remote repositories.
 
+`export-metadata` is a subcommand alias for `analyze` and works under both installed console scripts:
+
 ```bash
+srl export-metadata \
+  --model Tiiny-SmallThinker-4BA0.6B-Instruct-Q4_K_M.powerinfer.gguf \
+  --output artifact-report.json
+
 sparse-runtime-lab analyze \
   --model Tiiny-SmallThinker-4BA0.6B-Instruct-Q4_K_M.powerinfer.gguf \
   --output artifact-report.json
 ```
 
+`profile` is a subcommand alias for `profile-plan` and works under both installed console scripts. It remains a dry-run planning artifact rather than a real profiler:
+
+```bash
+srl profile \
+  --model model.gguf \
+  --calibration calibration_prompts.txt \
+  --max-samples 128 \
+  --target-modules mlp ffn \
+  --output profile-plan.json
+```
+
 Render an existing JSON report to Markdown with the separate `report` command:
+
+```bash
+srl report \
+  --input artifact-report.json \
+  --output artifact-report.md
+```
 
 ```bash
 sparse-runtime-lab report \
@@ -130,6 +160,29 @@ sparse-runtime-lab smoke \
 ```
 
 The CLI executes external runtimes with `subprocess.run([...], shell=False)`. It returns `0` only when the static model gate is not red and the runtime smoke test passes. It returns `2` for red static gates, missing layout/runtime failures, validation errors, or failed smoke tests.
+
+`bench dense` currently wraps the same dense/runtime smoke path. It is a baseline smoke wrapper, not a sparse benchmark, and it is not evidence of sparse speedups:
+
+```bash
+srl bench dense \
+  --runtime ./PowerInfer/build/bin/main \
+  --model model.powerinfer.gguf \
+  --prompt "Explain sparse inference in one paragraph." \
+  --tokens 128 \
+  --threads 8 \
+  --vram-budget 8 \
+  --output dense-baseline.json
+```
+
+The legacy commands remain supported:
+
+```bash
+sparse-runtime-lab analyze
+sparse-runtime-lab check-layout
+sparse-runtime-lab smoke
+sparse-runtime-lab profile-plan
+sparse-runtime-lab report
+```
 
 ## Dense vs sparse workflow intent
 
