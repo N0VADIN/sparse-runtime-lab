@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Sequence
 
@@ -88,7 +89,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "report":
-        _emit(render_markdown_from_report(load_report(args.input)), args.output)
+        try:
+            report = load_report(args.input)
+            markdown = render_markdown_from_report(report)
+        except (OSError, ValueError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        _emit(markdown, args.output)
         return 0
 
     return 2
