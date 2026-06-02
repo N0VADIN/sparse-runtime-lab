@@ -73,3 +73,16 @@ def test_cli_report_renders_existing_json(tmp_path, capsys):
 
     assert rc == 0
     assert "# Sparse Runtime Lab Report" in out
+
+
+def test_cli_report_returns_clean_error_for_unsupported_payload(tmp_path, capsys):
+    report_path = tmp_path / "bad.json"
+    report_path.write_text('{"schema_version": 1, "report_type": "unknown"}', encoding="utf-8")
+
+    rc = main(["report", "--input", str(report_path)])
+    captured = capsys.readouterr()
+
+    assert rc == 2
+    assert "unsupported report type" in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""

@@ -48,3 +48,20 @@ def test_load_report_rejects_unknown_schema_version(tmp_path):
 
     with pytest.raises(ValueError, match="unsupported"):
         load_report(path)
+
+
+@pytest.mark.parametrize(
+    "payload, expected",
+    [
+        ({"schema_version": 1, "report_type": "artifact", "result": {}}, "static_analysis"),
+        ({"schema_version": 1, "report_type": "layout", "result": {}}, "layout"),
+        ({"schema_version": 1, "report_type": "profile_plan"}, "profile_plan"),
+        ({"schema_version": 1, "report_type": "activation_profile", "profile_plan": {}}, "layers"),
+    ],
+)
+def test_load_report_rejects_missing_required_top_level_keys(tmp_path, payload, expected):
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=expected):
+        load_report(path)

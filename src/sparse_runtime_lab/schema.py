@@ -9,6 +9,12 @@ from typing import Any
 from .models import Gate, LayoutCheck, ModelAnalysis, RuntimeResult
 
 SCHEMA_VERSION = 1
+REQUIRED_TOP_LEVEL_KEYS = {
+    "artifact": ("result", "static_analysis"),
+    "layout": ("result", "layout"),
+    "profile_plan": ("profile_plan",),
+    "activation_profile": ("profile_plan", "layers"),
+}
 
 
 def gate_to_dict(gate: Gate) -> dict[str, str]:
@@ -123,4 +129,11 @@ def load_report(path: str | Path) -> dict[str, Any]:
         raise ValueError("report JSON must contain an object")
     if data.get("schema_version") != SCHEMA_VERSION:
         raise ValueError(f"unsupported report schema version: {data.get('schema_version')!r}")
+    report_type = data.get("report_type")
+    required_keys = REQUIRED_TOP_LEVEL_KEYS.get(report_type)
+    if required_keys is None:
+        raise ValueError(f"unsupported report type: {report_type!r}")
+    for key in required_keys:
+        if key not in data:
+            raise ValueError(f"{report_type} report is missing required top-level key: {key}")
     return data
