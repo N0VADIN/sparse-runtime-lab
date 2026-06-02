@@ -81,6 +81,43 @@ def test_profile_plan_cli_outputs_json(tmp_path, capsys):
     assert payload["profile_plan"]["target_modules"] == ["mlp", "ffn"]
 
 
+def test_profile_alias_matches_profile_plan(tmp_path, capsys):
+    calibration = tmp_path / "calibration.txt"
+    calibration.write_text("prompt one\n", encoding="utf-8")
+
+    rc_profile = main([
+        "profile",
+        "--model",
+        "model.gguf",
+        "--calibration",
+        str(calibration),
+        "--max-samples",
+        "3",
+        "--target-modules",
+        "mlp",
+        "ffn",
+    ])
+    profile_out = capsys.readouterr().out
+
+    rc_profile_plan = main([
+        "profile-plan",
+        "--model",
+        "model.gguf",
+        "--calibration",
+        str(calibration),
+        "--max-samples",
+        "3",
+        "--target-modules",
+        "mlp",
+        "ffn",
+    ])
+    profile_plan_out = capsys.readouterr().out
+
+    assert rc_profile == 0
+    assert rc_profile_plan == 0
+    assert profile_out == profile_plan_out
+
+
 def test_profile_plan_markdown_rendering(tmp_path):
     plan = create_profiling_plan("model.gguf", tmp_path / "missing.txt", 3, ("mlp",))
     markdown = render_markdown_from_report(profiling_plan_report(plan))

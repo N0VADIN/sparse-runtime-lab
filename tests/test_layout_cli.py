@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 from sparse_runtime_lab.cli import main
@@ -119,3 +120,34 @@ def test_cli_report_returns_clean_error_for_renderer_value_error(tmp_path, capsy
     assert "renderer exploded" in captured.err
     assert "Traceback" not in captured.err
     assert captured.out == ""
+
+
+def test_pyproject_exposes_both_console_scripts():
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+
+    assert 'sparse-runtime-lab = "sparse_runtime_lab.cli:main"' in pyproject
+    assert 'srl = "sparse_runtime_lab.cli:main"' in pyproject
+
+
+def test_cli_export_metadata_alias_matches_analyze(capsys):
+    rc = main(["analyze", "--model", "SmallThinker-Q4_K_M.powerinfer.gguf"])
+    analyze_out = capsys.readouterr().out
+
+    rc_alias = main(["export-metadata", "--model", "SmallThinker-Q4_K_M.powerinfer.gguf"])
+    alias_out = capsys.readouterr().out
+
+    assert rc == 0
+    assert rc_alias == 0
+    assert analyze_out == alias_out
+
+
+def test_cli_bench_dense_routes_through_smoke_behavior(capsys):
+    smoke_rc = main(["smoke", "--runtime", "/missing/runtime", "--model", "SmallThinker-Q4_K_M.powerinfer.gguf", "--dry-run"])
+    smoke_out = capsys.readouterr().out
+
+    bench_rc = main(["bench", "dense", "--runtime", "/missing/runtime", "--model", "SmallThinker-Q4_K_M.powerinfer.gguf", "--dry-run"])
+    bench_out = capsys.readouterr().out
+
+    assert smoke_rc == 0
+    assert bench_rc == 0
+    assert smoke_out == bench_out
