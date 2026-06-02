@@ -7,7 +7,7 @@ from sparse_runtime_lab.layout import check_powerinfer_layout
 from sparse_runtime_lab.schema import artifact_report, dumps_report, layout_report, load_report
 
 
-def test_artifact_schema_includes_planned_command():
+def test_artifact_schema_includes_runtime_fields():
     analysis = analyze_model("SmallThinker-Q4_K_M.powerinfer.gguf")
     report = artifact_report(analysis, planned_command=("runtime", "-m", "model.powerinfer.gguf"))
 

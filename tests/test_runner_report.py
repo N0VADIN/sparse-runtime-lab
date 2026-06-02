@@ -5,7 +5,7 @@ import pytest
 
 from sparse_runtime_lab.analyzer import analyze_model
 from sparse_runtime_lab.models import Gate
-from sparse_runtime_lab.report import final_gate, render_markdown_from_report, render_markdown_report
+from sparse_runtime_lab.report import final_gate, render_json_report, render_markdown_from_report, render_markdown_report
 from sparse_runtime_lab.runner import build_command, parse_runtime_output, run_smoke_test
 from sparse_runtime_lab.schema import artifact_report, dumps_report, load_report
 
@@ -100,8 +100,24 @@ def test_json_schema_is_machine_readable_and_markdown_is_separate(tmp_path):
     assert loaded["report_type"] == "artifact"
     assert loaded["result"]["value"] == "yellow"
     assert loaded["runtime"] is None
+    assert loaded["planned_command"] is None
     assert loaded["static_analysis"]["activation"] == "SwiGLU"
     assert "# Sparse Runtime Lab Report" in markdown
+
+
+def test_render_json_report_keeps_artifact_shape_with_runtime():
+    analysis = analyze_model("SmallThinker-Q4_K_M.powerinfer.gguf")
+    runtime = parse_runtime_output(
+        ("main",),
+        stdout=(FIXTURE_DIR / "powerinfer_success.stdout").read_text(encoding="utf-8"),
+        stderr=(FIXTURE_DIR / "powerinfer_success.stderr").read_text(encoding="utf-8"),
+        return_code=0,
+    )
+
+    report = json.loads(render_json_report(analysis, runtime))
+
+    assert report["report_type"] == "artifact"
+    assert report["runtime"]["passed"] is True
 
 
 def test_missing_runtime_binary_is_failed_result_not_exception():

@@ -47,6 +47,7 @@ def test_cli_analyze_emits_json(capsys):
     payload = json.loads(out)
 
     assert rc == 0
+    assert payload["report_type"] == "artifact"
     assert payload["result"]["value"] == "yellow"
     assert payload["runtime"] is None
 
@@ -57,6 +58,7 @@ def test_cli_smoke_dry_run_builds_command_without_executing(capsys):
     payload = json.loads(out)
 
     assert rc == 0
+    assert payload["report_type"] == "artifact"
     assert payload["runtime"] is None
     assert payload["planned_command"][0] == "/missing/runtime"
 
